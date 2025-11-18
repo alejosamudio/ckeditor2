@@ -398,8 +398,34 @@ const editorConfig = {
 configUpdateAlert(editorConfig);
 
 DecoupledEditor.create(document.querySelector('#editor'), editorConfig).then(editor => {
+	// Attach toolbar & menu bar (existing behavior)
 	document.querySelector('#editor-toolbar').appendChild(editor.ui.view.toolbar.element);
 	document.querySelector('#editor-menu-bar').appendChild(editor.ui.view.menuBarView.element);
+
+	// ✅ Expose editor globally so bridge.js can access it
+	window.editor = editor;
+
+	// ✅ Flag to prevent echo loops when Bubble loads content
+	window.suppressEditorEvents = false;
+
+	// ✅ Notify Bubble (parent window) that the editor is ready
+	if (typeof window.sendToParent === "function") {
+		window.sendToParent("EDITOR_READY", {
+			timestamp: Date.now()
+		});
+	}
+
+	// ✅ Send HTML updates to Bubble on every data change
+	editor.model.document.on("change:data", () => {
+		// If we're in the middle of programmatic setData from Bubble, skip
+		if (window.suppressEditorEvents) return;
+
+		if (typeof window.sendToParent === "function") {
+			window.sendToParent("CONTENT_UPDATE", {
+				html: editor.getData()
+			});
+		}
+	});
 
 	return editor;
 });
