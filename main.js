@@ -235,14 +235,29 @@ DecoupledEditor.create(document.querySelector("#editor"), editorConfig)
 		document.querySelector("#editor-toolbar").appendChild(editor.ui.view.toolbar.element);
 		document.querySelector("#editor-menu-bar").appendChild(editor.ui.view.menuBarView.element);
 
+		// Expose globally (still useful for debugging)
 		window.editor = editor;
 		window.suppressEditorEvents = false;
 
-		// Notify Bubble
-		if (window.sendToParent) {
-			console.log("🟦 SENDING EDITOR_READY → parent");
-			window.sendToParent("EDITOR_READY", { timestamp: Date.now() });
-		}
+		// 🔁 Bubble → Editor: listen for LOAD_CONTENT *after* editor exists
+		window.addEventListener("message", (event) => {
+			const msg = event.data;
+			if (!msg || msg.bridge !== "CKE_BUBBLE_BRIDGE_V1") return;
+
+			console.log("📥 main.js received from Bubble:", msg);
+
+			if (msg.type === "LOAD_CONTENT") {
+				console.log("🟦 Applying LOAD_CONTENT to CKEditor…");
+				try {
+					window.suppressEditorEvents = true;
+					editor.setData(msg.payload.html);   // use captured editor instance
+					window.suppressEditorEvents = false;
+					console.log("✔️ CKEditor content updated by Bubble");
+				} catch (err) {
+					console.error("❌ Failed setData:", err);
+				}
+			}
+		});
 
 		// Editor → Bubble
 		editor.model.document.on("change:data", () => {
@@ -255,34 +270,16 @@ DecoupledEditor.create(document.querySelector("#editor"), editorConfig)
 				window.sendToParent("CONTENT_UPDATE", { html });
 			}
 		});
+
+		// Notify Bubble that editor is ready
+		if (window.sendToParent) {
+			console.log("🟦 SENDING EDITOR_READY → parent");
+			window.sendToParent("EDITOR_READY", { timestamp: Date.now() });
+		}
 	})
 	.catch(err => {
 		console.error("❌ EDITOR FAILED TO INITIALIZE:", err);
 	});
 
-// --------------------------------------------------------
-// BUBBLE → EDITOR MESSAGE HANDLER  💥 THIS WAS MISSING
-// --------------------------------------------------------
-window.addEventListener("message", (event) => {
-	const msg = event.data;
-	if (!msg || msg.bridge !== "CKE_BUBBLE_BRIDGE_V1") return;
-
-	console.log("📥 main.js received:", msg);
-
-	if (msg.type === "LOAD_CONTENT") {
-		console.log("🟦 Applying LOAD_CONTENT to CKEditor…");
-
-		try {
-			window.suppressEditorEvents = true;
-			window.editor.setData(msg.payload.html);
-			window.suppressEditorEvents = false;
-
-			console.log("✔️ CKEditor content updated by Bubble");
-		} catch (err) {
-			console.error("❌ Failed setData:", err);
-		}
-	}
-});
-
-// Disable trial popup
+// Disable trial popup helper (no-op, but kept to avoid errors)
 function configUpdateAlert() {}
