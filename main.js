@@ -1,7 +1,6 @@
 /**
  * CKEditor 5 + Bubble Bridge — Full Production File
- * Includes:
- *  - AI
+ *  - AI enabled
  *  - No RTC
  *  - Bubble → Editor LOAD_CONTENT support
  *  - Editor → Bubble CONTENT_UPDATE support
@@ -18,6 +17,8 @@ const LICENSE_KEY =
 
 const TOKEN_URL =
 	'https://uplnolydjmzr.cke-cs.com/token/dev/9dcdd882883e331512ce6f9865e9ec42fa58287442ece2a12be481798c5?limit=10';
+
+const BRIDGE_ID = "CKE_BUBBLE_BRIDGE_V1";
 
 document.addEventListener("DOMContentLoaded", () => {
 	console.log("🟩 DOM READY — #editor:", document.querySelector("#editor"));
@@ -106,6 +107,26 @@ const {
 
 console.log("🟦 CKEDITOR UMD Loaded? ", !!window.CKEDITOR);
 console.log("🟦 PREMIUM UMD Loaded? ", !!window.CKEDITOR_PREMIUM_FEATURES);
+
+// --------------------------------------------------------
+// Helper: send message to Bubble parent
+// --------------------------------------------------------
+if (typeof window.sendToParent !== "function") {
+	window.sendToParent = function (type, payload = {}) {
+		const message = {
+			bridge: BRIDGE_ID,
+			type,
+			payload
+		};
+
+		try {
+			window.parent.postMessage(message, "*");
+			// console.log("📤 main.js → parent:", message);
+		} catch (e) {
+			console.error("❌ main.js parent.postMessage failed:", e);
+		}
+	};
+}
 
 // --------------------------------------------------------
 // CONFIGURATION (NO RTC, WITH AI)
@@ -235,51 +256,50 @@ DecoupledEditor.create(document.querySelector("#editor"), editorConfig)
 		document.querySelector("#editor-toolbar").appendChild(editor.ui.view.toolbar.element);
 		document.querySelector("#editor-menu-bar").appendChild(editor.ui.view.menuBarView.element);
 
-		// Expose globally (still useful for debugging)
 		window.editor = editor;
 		window.suppressEditorEvents = false;
 
-		// 🔁 Bubble → Editor: listen for LOAD_CONTENT *after* editor exists
-		window.addEventListener("message", (event) => {
-			const msg = event.data;
-			if (!msg || msg.bridge !== "CKE_BUBBLE_BRIDGE_V1") return;
+		// Notify Bubble that editor is ready
+		window.sendToParent("EDITOR_READY", { timestamp: Date.now() });
 
-			console.log("📥 main.js received from Bubble:", msg);
-
-			if (msg.type === "LOAD_CONTENT") {
-				console.log("🟦 Applying LOAD_CONTENT to CKEditor…");
-				try {
-					window.suppressEditorEvents = true;
-					editor.setData(msg.payload.html);   // use captured editor instance
-					window.suppressEditorEvents = false;
-					console.log("✔️ CKEditor content updated by Bubble");
-				} catch (err) {
-					console.error("❌ Failed setData:", err);
-				}
-			}
-		});
-
-		// Editor → Bubble
+		// Editor → Bubble on content change
 		editor.model.document.on("change:data", () => {
 			if (window.suppressEditorEvents) return;
 
 			const html = editor.getData();
 			console.log("🟧 CONTENT_UPDATE:", html.slice(0, 120));
 
-			if (window.sendToParent) {
-				window.sendToParent("CONTENT_UPDATE", { html });
-			}
+			window.sendToParent("CONTENT_UPDATE", { html });
 		});
-
-		// Notify Bubble that editor is ready
-		if (window.sendToParent) {
-			console.log("🟦 SENDING EDITOR_READY → parent");
-			window.sendToParent("EDITOR_READY", { timestamp: Date.now() });
-		}
 	})
 	.catch(err => {
 		console.error("❌ EDITOR FAILED TO INITIALIZE:", err);
 	});
 
-// Disable trial popup helper (no-op, but kept to avoid errors)
+// --------------------------------------------------------
+// BUBBLE → EDITOR MESSAGE HANDLER
+// (receives LOAD_CONTENT from Bubble bridge)
+// --------------------------------------------------------
+window.addEventListener("message", (event) => {
+	const msg = event.data;
+	if (!msg || msg.bridge !== BRIDGE_ID) return;
+
+	console.log("📥 main.js received from Bubble:", msg);
+
+	if (msg.type === "LOAD_CONTENT") {
+		console.log("🟦 Applying LOAD_CONTENT to CKEditor…");
+
+		try {
+			window.suppressEditorEvents = true;
+			window.editor.setData(msg.payload.html || "");
+			window.suppressEditorEvents = false;
+
+			console.log("✔️ CKEditor content updated by Bubble");
+		} catch (err) {
+			console.error("❌ Failed setData:", err);
+		}
+	}
+});
+
+// Disable CKEditor trial popup helper
 function configUpdateAlert() {}
