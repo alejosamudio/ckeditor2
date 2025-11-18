@@ -9,6 +9,57 @@
 
 console.log("🟦 MAIN.JS LOADED");
 
+const BRIDGE_ID = "CKE_BUBBLE_BRIDGE_V1";
+
+/* ------------------------------------------------------------------
+   🔥 CRITICAL FIX:
+   WE MUST ATTACH A MESSAGE LISTENER IMMEDIATELY, BEFORE EDITOR LOADS
+   This ensures LOAD_CONTENT reaches THIS iframe, not Bubble's wrapper.
+------------------------------------------------------------------- */
+(function forceMessageListenerBinding() {
+	console.log("🧬 Binding LOAD_CONTENT listener inside CKEditor iframe");
+
+	window.addEventListener("message", (event) => {
+		const msg = event.data;
+		if (!msg || msg.bridge !== BRIDGE_ID) return;
+
+		console.log("📥 main.js received (EARLY LISTENER):", msg);
+
+		if (msg.type === "LOAD_CONTENT") {
+			console.log("🟦 Applying LOAD_CONTENT to CKEditor…");
+
+			try {
+				if (!window.editor) {
+					console.warn("⚠️ Editor not ready yet — delaying LOAD_CONTENT");
+					window._pendingLoadContent = msg.payload.html;
+					return;
+				}
+
+				window.suppressEditorEvents = true;
+				window.editor.setData(msg.payload.html || "");
+				window.suppressEditorEvents = false;
+
+				console.log("✔️ CKEditor content updated by Bubble (early listener)");
+			} catch (err) {
+				console.error("❌ Failed setData:", err);
+			}
+		}
+	});
+})();
+
+/* ------------------------------------------------------------------
+   When editor becomes ready, apply any delayed LOAD_CONTENT
+------------------------------------------------------------------- */
+function applyPendingLoad() {
+	if (window._pendingLoadContent && window.editor) {
+		console.log("🟦 Applying delayed LOAD_CONTENT...");
+		window.suppressEditorEvents = true;
+		window.editor.setData(window._pendingLoadContent);
+		window.suppressEditorEvents = false;
+		window._pendingLoadContent = null;
+	}
+}
+
 // --------------------------------------------------------
 // ENV VARIABLES
 // --------------------------------------------------------
@@ -17,8 +68,6 @@ const LICENSE_KEY =
 
 const TOKEN_URL =
 	'https://uplnolydjmzr.cke-cs.com/token/dev/9dcdd882883e331512ce6f9865e9ec42fa58287442ece2a12be481798c5?limit=10';
-
-const BRIDGE_ID = "CKE_BUBBLE_BRIDGE_V1";
 
 document.addEventListener("DOMContentLoaded", () => {
 	console.log("🟩 DOM READY — #editor:", document.querySelector("#editor"));
@@ -105,9 +154,6 @@ const {
 	SlashCommand
 } = window.CKEDITOR_PREMIUM_FEATURES;
 
-console.log("🟦 CKEDITOR UMD Loaded? ", !!window.CKEDITOR);
-console.log("🟦 PREMIUM UMD Loaded? ", !!window.CKEDITOR_PREMIUM_FEATURES);
-
 // --------------------------------------------------------
 // Helper: send message to Bubble parent
 // --------------------------------------------------------
@@ -121,7 +167,6 @@ if (typeof window.sendToParent !== "function") {
 
 		try {
 			window.parent.postMessage(message, "*");
-			// console.log("📤 main.js → parent:", message);
 		} catch (e) {
 			console.error("❌ main.js parent.postMessage failed:", e);
 		}
@@ -235,7 +280,6 @@ const editorConfig = {
 		tokenUrl: TOKEN_URL
 	},
 
-	// Required by AIChat (no RTC needed)
 	collaboration: {
 		channelId: DOCUMENT_ID
 	},
@@ -259,10 +303,13 @@ DecoupledEditor.create(document.querySelector("#editor"), editorConfig)
 		window.editor = editor;
 		window.suppressEditorEvents = false;
 
-		// Notify Bubble that editor is ready
+		// Apply pending content if Bubble sent LOAD_CONTENT too early
+		applyPendingLoad();
+
+		// Notify Bubble
 		window.sendToParent("EDITOR_READY", { timestamp: Date.now() });
 
-		// Editor → Bubble on content change
+		// Editor → Bubble
 		editor.model.document.on("change:data", () => {
 			if (window.suppressEditorEvents) return;
 
@@ -276,30 +323,5 @@ DecoupledEditor.create(document.querySelector("#editor"), editorConfig)
 		console.error("❌ EDITOR FAILED TO INITIALIZE:", err);
 	});
 
-// --------------------------------------------------------
-// BUBBLE → EDITOR MESSAGE HANDLER
-// (receives LOAD_CONTENT from Bubble bridge)
-// --------------------------------------------------------
-window.addEventListener("message", (event) => {
-	const msg = event.data;
-	if (!msg || msg.bridge !== BRIDGE_ID) return;
-
-	console.log("📥 main.js received from Bubble:", msg);
-
-	if (msg.type === "LOAD_CONTENT") {
-		console.log("🟦 Applying LOAD_CONTENT to CKEditor…");
-
-		try {
-			window.suppressEditorEvents = true;
-			window.editor.setData(msg.payload.html || "");
-			window.suppressEditorEvents = false;
-
-			console.log("✔️ CKEditor content updated by Bubble");
-		} catch (err) {
-			console.error("❌ Failed setData:", err);
-		}
-	}
-});
-
-// Disable CKEditor trial popup helper
+// Disable CKEditor trial popup
 function configUpdateAlert() {}
