@@ -41,15 +41,16 @@
 			</div>
 		</div>
 
-		<!-- CKEditor scripts (UMD bundles) -->
-		<script src="https://cdn.ckeditor.com/ckeditor5/47.2.0/ckeditor5.umd.js" crossorigin></script>
-		<script src="https://cdn.ckeditor.com/ckeditor5-premium-features/47.2.0/ckeditor5-premium-features.umd.js" crossorigin></script>
-		<script src="https://cdn.ckbox.io/ckbox/2.6.1/ckbox.js" crossorigin></script>
+		<!-- CKEditor scripts (UMD) -->
+		<script src="https://cdn.ckeditor.com/ckeditor5/47.2.0/ckeditor5.umd.js"></script>
+		<script src="https://cdn.ckeditor.com/ckeditor5-premium-features/47.2.0/ckeditor5-premium-features.umd.js"></script>
+		<script src="https://cdn.ckbox.io/ckbox/2.6.1/ckbox.js"></script>
 
-		<!-- ✅ Bridge must load BEFORE main.js so its functions are available -->
-		<script src="./bridge.js"></script>
+		<!-- Bridge BEFORE main -->
+		<script src="/bridge.js"></script>
 
-		<!-- Your main CKEditor config -->
-		<script src="./main.js"></script>
+		<!-- Load Vite-processed main.js -->
+		<script type="module" src="/main.js"></script>
+
 	</body>
 </html>

@@ -1,23 +1,22 @@
 /**
- * CKEditor 5 + Bubble Bridge — Debug Version
- * ------------------------------------------
- * This version adds full logging so we can diagnose:
- *  - whether main.js loads
- *  - whether CKEditor initializes
- *  - whether window.editor is created
- *  - whether CONTENT_UPDATE triggers
+ * CKEditor 5 + Bubble Bridge — Clean + AI + No RTC
  */
 
 console.log("🟦 MAIN.JS LOADED");
 
-// Debug DOM readiness
+// --------------------------------------------------------
+// ENV VARIABLES
+// --------------------------------------------------------
+const LICENSE_KEY = 'eyJhbGciOiJFUzI1NiJ9.eyJleHAiOjE3NjQyMDE1OTksImp0aSI6ImNiMWJiNTk0LWIxODEtNGJmMi1iZTA5LTM2ZGM1MjY3MzIxZiIsInVzYWdlRW5kcG9pbnQiOiJodHRwczovL3Byb3h5LWV2ZW50LmNrZWRpdG9yLmNvbSIsImRpc3RyaWJ1dGlvbkNoYW5uZWwiOlsiY2xvdWQiLCJkcnVwYWwiLCJzaCJdLCJ3aGl0ZUxhYmVsIjp0cnVlLCJsaWNlbnNlVHlwZSI6InRyaWFsIiwiZmVhdHVyZXMiOlsiKiJdLCJ2YyI6ImFhNmQ1YmUwIn0.a4QCfokW3f4OX2Td4j7I5Nv6J9NsaWg4atvrEmD90ijhttvsbqFMfaoJ4a-X_V0ZJ0mxSN6mMf1jjWLJGlV0dQ';
+const TOKEN_URL = "https://uplnolydjmzr.cke-cs.com/token/dev/9dcdd882883e3315126ce6f9865e9ec42fa58287442ece2a12be481798c5?limit=10";
+
 document.addEventListener("DOMContentLoaded", () => {
 	console.log("🟩 DOM READY — #editor:", document.querySelector("#editor"));
 });
 
-/**
- * CKEditor plugins (generated via CKBuilder)
- */
+// --------------------------------------------------------
+// LOAD PLUGINS — from CKBuilder preset
+// --------------------------------------------------------
 const {
 	DecoupledEditor,
 	Autosave,
@@ -93,71 +92,33 @@ const {
 	PasteFromOfficeEnhanced,
 	FormatPainter,
 	LineHeight,
-	RealTimeCollaborativeComments,
-	RealTimeCollaborativeEditing,
-	PresenceList,
-	Comments,
-	RealTimeCollaborativeTrackChanges,
-	TrackChanges,
-	TrackChangesData,
-	TrackChangesPreview,
 	SlashCommand
 } = window.CKEDITOR_PREMIUM_FEATURES;
-
 
 console.log("🟦 CKEDITOR UMD Loaded? ", !!window.CKEDITOR);
 console.log("🟦 PREMIUM UMD Loaded? ", !!window.CKEDITOR_PREMIUM_FEATURES);
 
-// Your real values
-const LICENSE_KEY = "YOUR_LICENSE_KEY_HERE";
+// --------------------------------------------------------
+// CONFIGURATION (NO RTC, WITH AI)
+// --------------------------------------------------------
 const DOCUMENT_ID = "fv-doc-1";
-const CLOUD_SERVICES_TOKEN_URL =
-	"https://uplnolydjmzr.cke-cs.com/token/dev/9dcdd882883e3315126ce6f9865e9ec42fa58287442ece2a12be481798c5?limit=10";
-const CLOUD_SERVICES_WEBSOCKET_URL = "wss://uplnolydjmzr.cke-cs.com/ws";
 
-
-// --------------------------------------------------------
-// Editor Config
-// --------------------------------------------------------
 const editorConfig = {
 	toolbar: {
 		items: [
-			"undo",
-			"redo",
-			"|",
-			"trackChanges",
-			"comment",
-			"|",
-			"toggleAi",
-			"|",
-			"formatPainter",
-			"|",
-			"heading",
-			"|",
-			"fontSize",
-			"fontFamily",
-			"fontColor",
-			"fontBackgroundColor",
-			"|",
-			"bold",
-			"italic",
-			"underline",
-			"|",
-			"link",
-			"insertImage",
-			"insertTable",
-			"blockQuote",
-			"codeBlock",
-			"|",
-			"alignment",
-			"lineHeight",
-			"|",
-			"bulletedList",
-			"numberedList",
-			"todoList",
-			"outdent",
-			"indent"
-		]
+			"undo", "redo", "|",
+			"toggleAi", "aiQuickActions", "|",
+			"formatPainter", "findAndReplace", "|",
+			"heading", "|",
+			"fontSize", "fontFamily", "fontColor", "fontBackgroundColor", "|",
+			"bold", "italic", "underline", "strikethrough", "subscript", "superscript", "code", "removeFormat", "|",
+			"emoji", "specialCharacters", "horizontalLine", "link", "bookmark",
+			"insertImage", "insertImageViaUrl", "ckbox", "mediaEmbed", "insertTable",
+			"blockQuote", "codeBlock", "|",
+			"alignment", "lineHeight", "|",
+			"bulletedList", "numberedList", "todoList", "outdent", "indent"
+		],
+		shouldNotGroupWhenFull: false
 	},
 
 	plugins: [
@@ -179,7 +140,6 @@ const editorConfig = {
 		CloudServices,
 		Code,
 		CodeBlock,
-		Comments,
 		Emoji,
 		Essentials,
 		FindAndReplace,
@@ -212,10 +172,6 @@ const editorConfig = {
 		PasteFromOffice,
 		PasteFromOfficeEnhanced,
 		PictureEditing,
-		PresenceList,
-		RealTimeCollaborativeComments,
-		RealTimeCollaborativeEditing,
-		RealTimeCollaborativeTrackChanges,
 		RemoveFormat,
 		SlashCommand,
 		SpecialCharacters,
@@ -236,9 +192,6 @@ const editorConfig = {
 		TableToolbar,
 		TextTransformation,
 		TodoList,
-		TrackChanges,
-		TrackChangesData,
-		TrackChangesPreview,
 		Underline
 	],
 
@@ -247,29 +200,20 @@ const editorConfig = {
 	},
 
 	cloudServices: {
-		tokenUrl: CLOUD_SERVICES_TOKEN_URL,
-		webSocketUrl: CLOUD_SERVICES_WEBSOCKET_URL
+		tokenUrl: TOKEN_URL
 	},
 
+	// ❗ REQUIRED for AIChat (even with RTC disabled)
 	collaboration: {
 		channelId: DOCUMENT_ID
-	},
-
-	presenceList: {
-		container: document.querySelector("#editor-presence")
-	},
-
-	sidebar: {
-		container: document.querySelector("#editor-annotations")
 	},
 
 	placeholder: "Type or paste your content here!",
 	licenseKey: LICENSE_KEY
 };
 
-
 // --------------------------------------------------------
-// CREATE EDITOR + DEBUG
+// CREATE EDITOR
 // --------------------------------------------------------
 console.log("🟦 Calling DecoupledEditor.create()...");
 
@@ -277,40 +221,33 @@ DecoupledEditor.create(document.querySelector("#editor"), editorConfig)
 	.then(editor => {
 		console.log("🟩 EDITOR CREATED SUCCESSFULLY", editor);
 
-		// Add toolbar + menu bar
 		document.querySelector("#editor-toolbar").appendChild(editor.ui.view.toolbar.element);
 		document.querySelector("#editor-menu-bar").appendChild(editor.ui.view.menuBarView.element);
 
-		// Expose globally
 		window.editor = editor;
 		window.suppressEditorEvents = false;
 
-		// Send EDITOR_READY
+		// Notify Bubble
 		if (window.sendToParent) {
 			console.log("🟦 SENDING EDITOR_READY → parent");
 			window.sendToParent("EDITOR_READY", { timestamp: Date.now() });
 		}
 
-		// Listen for content updates
+		// Listen for content changes
 		editor.model.document.on("change:data", () => {
 			if (window.suppressEditorEvents) return;
 
 			const html = editor.getData();
-			console.log("🟧 CONTENT_UPDATE fired:", html.slice(0, 80));
+			console.log("🟧 CONTENT_UPDATE:", html.slice(0, 100));
 
 			if (window.sendToParent) {
 				window.sendToParent("CONTENT_UPDATE", { html });
 			}
 		});
-
-		return editor;
 	})
 	.catch(err => {
 		console.error("❌ EDITOR FAILED TO INITIALIZE:", err);
 	});
 
-
-// --------------------------------------------------------
-// TRIAL ALERT (CK Default)
-// --------------------------------------------------------
+// Prevent trial popup from interfering
 function configUpdateAlert() {}
