@@ -1,5 +1,11 @@
 /**
- * CKEditor 5 + Bubble Bridge — Clean + AI + No RTC
+ * CKEditor 5 + Bubble Bridge — Full Production File
+ * Includes:
+ *  - AI
+ *  - No RTC
+ *  - Bubble → Editor LOAD_CONTENT support
+ *  - Editor → Bubble CONTENT_UPDATE support
+ *  - Decoupled editor + menu bar
  */
 
 console.log("🟦 MAIN.JS LOADED");
@@ -7,15 +13,18 @@ console.log("🟦 MAIN.JS LOADED");
 // --------------------------------------------------------
 // ENV VARIABLES
 // --------------------------------------------------------
-const LICENSE_KEY = 'eyJhbGciOiJFUzI1NiJ9.eyJleHAiOjE3NjQyMDE1OTksImp0aSI6ImNiMWJiNTk0LWIxODEtNGJmMi1iZTA5LTM2ZGM1MjY3MzIxZiIsInVzYWdlRW5kcG9pbnQiOiJodHRwczovL3Byb3h5LWV2ZW50LmNrZWRpdG9yLmNvbSIsImRpc3RyaWJ1dGlvbkNoYW5uZWwiOlsiY2xvdWQiLCJkcnVwYWwiLCJzaCJdLCJ3aGl0ZUxhYmVsIjp0cnVlLCJsaWNlbnNlVHlwZSI6InRyaWFsIiwiZmVhdHVyZXMiOlsiKiJdLCJ2YyI6ImFhNmQ1YmUwIn0.a4QCfokW3f4OX2Td4j7I5Nv6J9NsaWg4atvrEmD90ijhttvsbqFMfaoJ4a-X_V0ZJ0mxSN6mMf1jjWLJGlV0dQ';
-const TOKEN_URL = "https://uplnolydjmzr.cke-cs.com/token/dev/9dcdd882883e3315126ce6f9865e9ec42fa58287442ece2a12be481798c5?limit=10";
+const LICENSE_KEY =
+	'eyJhbGciOiJFUzI1NiJ9.eyJleHAiOjE3NjQyMDE1OTksImp0aSI6ImNiMWJiNTk0LWIxODEtNGJmMi1iZTA5LTM2ZGM1MjY3MzIxZiIsInVzYWdlRW5kcG9pbnQiOiJodHRwczovL3Byb3h5LWV2ZW50LmNrZWRpdG9yLmNvbSIsImRpc3RyaWJ1dGlvbkNoYW5uZWwiOlsiY2xvdWQiLCJkcnVwYWwiLCJzaCJdLCJ3aGl0ZUxhYmVsIjp0cnVlLCJsaWNlbnNlVHlwZSI6InRyaWFsIiwiZmVhdHVyZXMiOlsiKiJdLCJ2YyI6ImFhNmQ1YmUwIn0.a4QCfokW3f4OX2Td4j7I5Nv6J9NsaWg4atvrEmD90ijhttvsbqFMfaoJ4a-X_V0ZJ0mxSN6mMf1jjWLJGlV0dQ';
+
+const TOKEN_URL =
+	'https://uplnolydjmzr.cke-cs.com/token/dev/9dcdd882883e331512ce6f9865e9ec42fa58287442ece2a12be481798c5?limit=10';
 
 document.addEventListener("DOMContentLoaded", () => {
 	console.log("🟩 DOM READY — #editor:", document.querySelector("#editor"));
 });
 
 // --------------------------------------------------------
-// LOAD PLUGINS — from CKBuilder preset
+// LOAD PLUGINS — CKBuilder preset
 // --------------------------------------------------------
 const {
 	DecoupledEditor,
@@ -111,14 +120,16 @@ const editorConfig = {
 			"formatPainter", "findAndReplace", "|",
 			"heading", "|",
 			"fontSize", "fontFamily", "fontColor", "fontBackgroundColor", "|",
-			"bold", "italic", "underline", "strikethrough", "subscript", "superscript", "code", "removeFormat", "|",
-			"emoji", "specialCharacters", "horizontalLine", "link", "bookmark",
-			"insertImage", "insertImageViaUrl", "ckbox", "mediaEmbed", "insertTable",
-			"blockQuote", "codeBlock", "|",
+			"bold", "italic", "underline", "strikethrough",
+			"subscript", "superscript", "code", "removeFormat", "|",
+			"emoji", "specialCharacters", "horizontalLine",
+			"link", "bookmark",
+			"insertImage", "insertImageViaUrl", "ckbox",
+			"mediaEmbed", "insertTable", "blockQuote", "codeBlock", "|",
 			"alignment", "lineHeight", "|",
-			"bulletedList", "numberedList", "todoList", "outdent", "indent"
-		],
-		shouldNotGroupWhenFull: false
+			"bulletedList", "numberedList", "todoList",
+			"outdent", "indent"
+		]
 	},
 
 	plugins: [
@@ -203,7 +214,7 @@ const editorConfig = {
 		tokenUrl: TOKEN_URL
 	},
 
-	// ❗ REQUIRED for AIChat (even with RTC disabled)
+	// Required by AIChat (no RTC needed)
 	collaboration: {
 		channelId: DOCUMENT_ID
 	},
@@ -233,12 +244,12 @@ DecoupledEditor.create(document.querySelector("#editor"), editorConfig)
 			window.sendToParent("EDITOR_READY", { timestamp: Date.now() });
 		}
 
-		// Listen for content changes
+		// Editor → Bubble
 		editor.model.document.on("change:data", () => {
 			if (window.suppressEditorEvents) return;
 
 			const html = editor.getData();
-			console.log("🟧 CONTENT_UPDATE:", html.slice(0, 100));
+			console.log("🟧 CONTENT_UPDATE:", html.slice(0, 120));
 
 			if (window.sendToParent) {
 				window.sendToParent("CONTENT_UPDATE", { html });
@@ -249,5 +260,29 @@ DecoupledEditor.create(document.querySelector("#editor"), editorConfig)
 		console.error("❌ EDITOR FAILED TO INITIALIZE:", err);
 	});
 
-// Prevent trial popup from interfering
+// --------------------------------------------------------
+// BUBBLE → EDITOR MESSAGE HANDLER  💥 THIS WAS MISSING
+// --------------------------------------------------------
+window.addEventListener("message", (event) => {
+	const msg = event.data;
+	if (!msg || msg.bridge !== "CKE_BUBBLE_BRIDGE_V1") return;
+
+	console.log("📥 main.js received:", msg);
+
+	if (msg.type === "LOAD_CONTENT") {
+		console.log("🟦 Applying LOAD_CONTENT to CKEditor…");
+
+		try {
+			window.suppressEditorEvents = true;
+			window.editor.setData(msg.payload.html);
+			window.suppressEditorEvents = false;
+
+			console.log("✔️ CKEditor content updated by Bubble");
+		} catch (err) {
+			console.error("❌ Failed setData:", err);
+		}
+	}
+});
+
+// Disable trial popup
 function configUpdateAlert() {}
