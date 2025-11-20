@@ -13,7 +13,8 @@ const BRIDGE_ID = "CKE_BUBBLE_BRIDGE_V1";
 
 /* ------------------------------------------------------------------
    🔥 CRITICAL FIX:
-   EARLY MESSAGE LISTENER — must run before CKEditor initializes
+   WE MUST ATTACH A MESSAGE LISTENER IMMEDIATELY, BEFORE EDITOR LOADS
+   This ensures LOAD_CONTENT reaches THIS iframe, not Bubble's wrapper.
 ------------------------------------------------------------------- */
 (function forceMessageListenerBinding() {
     console.log("🧬 Binding LOAD_CONTENT listener inside CKEditor iframe");
@@ -29,16 +30,16 @@ const BRIDGE_ID = "CKE_BUBBLE_BRIDGE_V1";
 
             try {
                 if (!window.editor) {
-                    console.warn("⚠️ Editor not ready — storing LOAD_CONTENT");
-                    window._pendingLoadContent = msg.payload.html;
+                    console.warn("⚠️ Editor not ready yet — delaying LOAD_CONTENT");
+                    window._pendingLoadContent = msg.payload && msg.payload.html ? msg.payload.html : "";
                     return;
                 }
 
                 window.suppressEditorEvents = true;
-                window.editor.setData(msg.payload.html || "");
+                window.editor.setData(msg.payload && msg.payload.html ? msg.payload.html : "");
                 window.suppressEditorEvents = false;
 
-                console.log("✔️ CKEditor content updated (early)");
+                console.log("✔️ CKEditor content updated by Bubble (early listener)");
             } catch (err) {
                 console.error("❌ Failed setData:", err);
             }
@@ -47,7 +48,7 @@ const BRIDGE_ID = "CKE_BUBBLE_BRIDGE_V1";
 })();
 
 /* ------------------------------------------------------------------
-   Late LOAD_CONTENT handler (after editor ready)
+   When editor becomes ready, apply any delayed LOAD_CONTENT
 ------------------------------------------------------------------- */
 function applyPendingLoad() {
     if (window._pendingLoadContent && window.editor) {
@@ -66,7 +67,7 @@ const LICENSE_KEY =
     'eyJhbGciOiJFUzI1NiJ9.eyJleHAiOjE3NjQyMDE1OTksImp0aSI6ImNiMWJiNTk0LWIxODEtNGJmMi1iZTA5LTM2ZGM1MjY3MzIxZiIsInVzYWdlRW5kcG9pbnQiOiJodHRwczovL3Byb3h5LWV2ZW50LmNrZWRpdG9yLmNvbSIsImRpc3RyaWJ1dGlvbkNoYW5uZWwiOlsiY2xvdWQiLCJkcnVwYWwiLCJzaCJdLCJ3aGl0ZUxhYmVsIjp0cnVlLCJsaWNlbnNlVHlwZSI6InRyaWFsIiwiZmVhdHVyZXMiOlsiKiJdLCJ2YyI6ImFhNmQ1YmUwIn0.a4QCfokW3f4OX2Td4j7I5Nv6J9NsaWg4atvrEmD90ijhttvsbqFMfaoJ4a-X_V0ZJ0mxSN6mMf1jjWLJGlV0dQ';
 
 const TOKEN_URL =
-    'https://uplnolydjmzr.cke-cs.com/token/dev/9dcdd882883e3315126ce6f9865e9ec42fa58287442ece2a12be481798c5?limit=10';
+    'https://uplnolydjmzr.cke-cs.com/token/dev/9dcdd882883e331512ce6f9865e9ec42fa58287442ece2a12be481798c5?limit=10';
 
 document.addEventListener("DOMContentLoaded", () => {
     console.log("🟩 DOM READY — #editor:", document.querySelector("#editor"));
@@ -154,7 +155,7 @@ const {
 } = window.CKEDITOR_PREMIUM_FEATURES;
 
 // --------------------------------------------------------
-// Helper: sendMessage to Bubble parent
+// Helper: send message to Bubble parent
 // --------------------------------------------------------
 if (typeof window.sendToParent !== "function") {
     window.sendToParent = function (type, payload = {}) {
@@ -167,13 +168,13 @@ if (typeof window.sendToParent !== "function") {
         try {
             window.parent.postMessage(message, "*");
         } catch (e) {
-            console.error("❌ postMessage failed:", e);
+            console.error("❌ main.js parent.postMessage failed:", e);
         }
     };
 }
 
 // --------------------------------------------------------
-// CONFIGURATION
+// CONFIGURATION (NO RTC, WITH AI)
 // --------------------------------------------------------
 const DOCUMENT_ID = "fv-doc-1";
 
@@ -296,37 +297,20 @@ DecoupledEditor.create(document.querySelector("#editor"), editorConfig)
     .then(editor => {
         console.log("🟩 EDITOR CREATED SUCCESSFULLY", editor);
 
-        document.querySelector("#editor-toolbar")
-            .appendChild(editor.ui.view.toolbar.element);
-
-        document.querySelector("#editor-menu-bar")
-            .appendChild(editor.ui.view.menuBarView.element);
+        document.querySelector("#editor-toolbar").appendChild(editor.ui.view.toolbar.element);
+        document.querySelector("#editor-menu-bar").appendChild(editor.ui.view.menuBarView.element);
 
         window.editor = editor;
         window.suppressEditorEvents = false;
 
-        // --------------------------------------------------------
-        // 🔥 FIX 1: Notify Bubble BEFORE running applyPendingLoad()
-        // --------------------------------------------------------
-        window.sendToParent("EDITOR_READY", { timestamp: Date.now() });
-
-        // --------------------------------------------------------
-        // 🔥 FIX 2: Apply early LOAD_CONTENT (if Bubble sent it too early)
-        // --------------------------------------------------------
+        // Apply pending content if Bubble sent LOAD_CONTENT too early
         applyPendingLoad();
 
-        // --------------------------------------------------------
-        // 🔥 FIX 3: If LOAD_CONTENT arrives late, apply it too
-        // --------------------------------------------------------
-        if (window._pendingLoadContent) {
-            console.log("🟦 Applying late LOAD_CONTENT...");
-            window.suppressEditorEvents = true;
-            editor.setData(window._pendingLoadContent);
-            window.suppressEditorEvents = false;
-            window._pendingLoadContent = null;
-        }
+        // Tell Bubble that the iframe + editor are fully ready
+        window.sendToParent("IFRAME_READY", { timestamp: Date.now() });
+        window.sendToParent("EDITOR_READY", { timestamp: Date.now() });
 
-        // Editor → Bubble sync
+        // Editor → Bubble
         editor.model.document.on("change:data", () => {
             if (window.suppressEditorEvents) return;
 
