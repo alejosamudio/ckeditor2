@@ -11,11 +11,9 @@ console.log("🟦 MAIN.JS LOADED");
 
 const BRIDGE_ID = "CKE_BUBBLE_BRIDGE_V1";
 
-/* ------------------------------------------------------------------
-   🔥 CRITICAL FIX:
-   WE MUST ATTACH A MESSAGE LISTENER IMMEDIATELY, BEFORE EDITOR LOADS
-   This ensures LOAD_CONTENT reaches THIS iframe, not Bubble's wrapper.
-------------------------------------------------------------------- */
+// --------------------------------------------------------
+// EARLY LISTENER: must exist before editor is ready
+// --------------------------------------------------------
 (function forceMessageListenerBinding() {
     console.log("🧬 Binding LOAD_CONTENT listener inside CKEditor iframe");
 
@@ -26,35 +24,57 @@ const BRIDGE_ID = "CKE_BUBBLE_BRIDGE_V1";
         console.log("📥 main.js received (EARLY LISTENER):", msg);
 
         if (msg.type === "LOAD_CONTENT") {
+            const safeHtml =
+                msg.payload && typeof msg.payload.html === "string"
+                    ? msg.payload.html
+                    : "";
+
             console.log("🟦 Applying LOAD_CONTENT to CKEditor…");
 
             try {
-                if (!window.editor) {
-                    console.warn("⚠️ Editor not ready yet — delaying LOAD_CONTENT");
-                    window._pendingLoadContent = msg.payload && msg.payload.html ? msg.payload.html : "";
+                // Only treat editor as ready if setData exists and is a function
+                if (!window.editor || typeof window.editor.setData !== "function") {
+                    console.warn("⚠️ Editor not ready or invalid — caching LOAD_CONTENT");
+                    window._pendingLoadContent = safeHtml;
                     return;
                 }
 
                 window.suppressEditorEvents = true;
-                window.editor.setData(msg.payload && msg.payload.html ? msg.payload.html : "");
+                window.editor.setData(safeHtml);
                 window.suppressEditorEvents = false;
 
                 console.log("✔️ CKEditor content updated by Bubble (early listener)");
             } catch (err) {
-                console.error("❌ Failed setData:", err);
+                console.error("❌ Failed setData, caching instead:", err);
+                // Cache anyway so the real editor can consume it later
+                window._pendingLoadContent = safeHtml;
             }
         }
     });
 })();
 
-/* ------------------------------------------------------------------
-   When editor becomes ready, apply any delayed LOAD_CONTENT
-------------------------------------------------------------------- */
+// --------------------------------------------------------
+// Apply pending content once the REAL editor exists
+// --------------------------------------------------------
 function applyPendingLoad() {
-    if (window._pendingLoadContent && window.editor) {
-        console.log("🟦 Applying delayed LOAD_CONTENT...");
+    if (!window._pendingLoadContent) {
+        console.log("ℹ️ No pending LOAD_CONTENT to apply");
+        return;
+    }
+
+    if (!window.editor || typeof window.editor.setData !== "function") {
+        console.warn("⚠️ Editor still not ready / invalid in applyPendingLoad()");
+        return;
+    }
+
+    console.log("🟦 Applying delayed LOAD_CONTENT...");
+    try {
         window.suppressEditorEvents = true;
         window.editor.setData(window._pendingLoadContent);
+    } catch (err) {
+        console.error("❌ Failed to applyPendingLoad:", err);
+        return;
+    } finally {
         window.suppressEditorEvents = false;
         window._pendingLoadContent = null;
     }
@@ -158,7 +178,7 @@ const {
 // Helper: send message to Bubble parent
 // --------------------------------------------------------
 if (typeof window.sendToParent !== "function") {
-    window.sendToParent = function (type, payload = {}) {
+    window.sendToParent = function(type, payload = {}) {
         const message = {
             bridge: BRIDGE_ID,
             type,
@@ -297,17 +317,19 @@ DecoupledEditor.create(document.querySelector("#editor"), editorConfig)
     .then(editor => {
         console.log("🟩 EDITOR CREATED SUCCESSFULLY", editor);
 
-        document.querySelector("#editor-toolbar").appendChild(editor.ui.view.toolbar.element);
-        document.querySelector("#editor-menu-bar").appendChild(editor.ui.view.menuBarView.element);
+        document
+            .querySelector("#editor-toolbar")
+            .appendChild(editor.ui.view.toolbar.element);
+        document
+            .querySelector("#editor-menu-bar")
+            .appendChild(editor.ui.view.menuBarView.element);
 
         window.editor = editor;
         window.suppressEditorEvents = false;
 
-        /* --------------------------------------------------------
-           🟢 CRITICAL FIX — apply content AFTER full render
-        -------------------------------------------------------- */
+        // Apply pending content once the editor has rendered at least once
         editor.editing.view.once("render", () => {
-            console.log("✨ Editor fully rendered — applying pending content");
+            console.log("✨ Editor fully rendered — applying pending content (if any)");
             applyPendingLoad();
         });
 
