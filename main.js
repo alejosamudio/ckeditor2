@@ -13,279 +13,278 @@ const BRIDGE_ID = "CKE_BUBBLE_BRIDGE_V1";
 
 /* ------------------------------------------------------------------
    🔥 CRITICAL FIX:
-   WE MUST ATTACH A MESSAGE LISTENER IMMEDIATELY, BEFORE EDITOR LOADS
-   This ensures LOAD_CONTENT reaches THIS iframe, not Bubble's wrapper.
+   EARLY MESSAGE LISTENER — must run before CKEditor initializes
 ------------------------------------------------------------------- */
 (function forceMessageListenerBinding() {
-	console.log("🧬 Binding LOAD_CONTENT listener inside CKEditor iframe");
+    console.log("🧬 Binding LOAD_CONTENT listener inside CKEditor iframe");
 
-	window.addEventListener("message", (event) => {
-		const msg = event.data;
-		if (!msg || msg.bridge !== BRIDGE_ID) return;
+    window.addEventListener("message", (event) => {
+        const msg = event.data;
+        if (!msg || msg.bridge !== BRIDGE_ID) return;
 
-		console.log("📥 main.js received (EARLY LISTENER):", msg);
+        console.log("📥 main.js received (EARLY LISTENER):", msg);
 
-		if (msg.type === "LOAD_CONTENT") {
-			console.log("🟦 Applying LOAD_CONTENT to CKEditor…");
+        if (msg.type === "LOAD_CONTENT") {
+            console.log("🟦 Applying LOAD_CONTENT to CKEditor…");
 
-			try {
-				if (!window.editor) {
-					console.warn("⚠️ Editor not ready yet — delaying LOAD_CONTENT");
-					window._pendingLoadContent = msg.payload.html;
-					return;
-				}
+            try {
+                if (!window.editor) {
+                    console.warn("⚠️ Editor not ready — storing LOAD_CONTENT");
+                    window._pendingLoadContent = msg.payload.html;
+                    return;
+                }
 
-				window.suppressEditorEvents = true;
-				window.editor.setData(msg.payload.html || "");
-				window.suppressEditorEvents = false;
+                window.suppressEditorEvents = true;
+                window.editor.setData(msg.payload.html || "");
+                window.suppressEditorEvents = false;
 
-				console.log("✔️ CKEditor content updated by Bubble (early listener)");
-			} catch (err) {
-				console.error("❌ Failed setData:", err);
-			}
-		}
-	});
+                console.log("✔️ CKEditor content updated (early)");
+            } catch (err) {
+                console.error("❌ Failed setData:", err);
+            }
+        }
+    });
 })();
 
 /* ------------------------------------------------------------------
-   When editor becomes ready, apply any delayed LOAD_CONTENT
+   Late LOAD_CONTENT handler (after editor ready)
 ------------------------------------------------------------------- */
 function applyPendingLoad() {
-	if (window._pendingLoadContent && window.editor) {
-		console.log("🟦 Applying delayed LOAD_CONTENT...");
-		window.suppressEditorEvents = true;
-		window.editor.setData(window._pendingLoadContent);
-		window.suppressEditorEvents = false;
-		window._pendingLoadContent = null;
-	}
+    if (window._pendingLoadContent && window.editor) {
+        console.log("🟦 Applying delayed LOAD_CONTENT...");
+        window.suppressEditorEvents = true;
+        window.editor.setData(window._pendingLoadContent);
+        window.suppressEditorEvents = false;
+        window._pendingLoadContent = null;
+    }
 }
 
 // --------------------------------------------------------
 // ENV VARIABLES
 // --------------------------------------------------------
 const LICENSE_KEY =
-	'eyJhbGciOiJFUzI1NiJ9.eyJleHAiOjE3NjQyMDE1OTksImp0aSI6ImNiMWJiNTk0LWIxODEtNGJmMi1iZTA5LTM2ZGM1MjY3MzIxZiIsInVzYWdlRW5kcG9pbnQiOiJodHRwczovL3Byb3h5LWV2ZW50LmNrZWRpdG9yLmNvbSIsImRpc3RyaWJ1dGlvbkNoYW5uZWwiOlsiY2xvdWQiLCJkcnVwYWwiLCJzaCJdLCJ3aGl0ZUxhYmVsIjp0cnVlLCJsaWNlbnNlVHlwZSI6InRyaWFsIiwiZmVhdHVyZXMiOlsiKiJdLCJ2YyI6ImFhNmQ1YmUwIn0.a4QCfokW3f4OX2Td4j7I5Nv6J9NsaWg4atvrEmD90ijhttvsbqFMfaoJ4a-X_V0ZJ0mxSN6mMf1jjWLJGlV0dQ';
+    'eyJhbGciOiJFUzI1NiJ9.eyJleHAiOjE3NjQyMDE1OTksImp0aSI6ImNiMWJiNTk0LWIxODEtNGJmMi1iZTA5LTM2ZGM1MjY3MzIxZiIsInVzYWdlRW5kcG9pbnQiOiJodHRwczovL3Byb3h5LWV2ZW50LmNrZWRpdG9yLmNvbSIsImRpc3RyaWJ1dGlvbkNoYW5uZWwiOlsiY2xvdWQiLCJkcnVwYWwiLCJzaCJdLCJ3aGl0ZUxhYmVsIjp0cnVlLCJsaWNlbnNlVHlwZSI6InRyaWFsIiwiZmVhdHVyZXMiOlsiKiJdLCJ2YyI6ImFhNmQ1YmUwIn0.a4QCfokW3f4OX2Td4j7I5Nv6J9NsaWg4atvrEmD90ijhttvsbqFMfaoJ4a-X_V0ZJ0mxSN6mMf1jjWLJGlV0dQ';
 
 const TOKEN_URL =
-	'https://uplnolydjmzr.cke-cs.com/token/dev/9dcdd882883e3315126ce6f9865e9ec42fa58287442ece2a12be481798c5?limit=10';
+    'https://uplnolydjmzr.cke-cs.com/token/dev/9dcdd882883e3315126ce6f9865e9ec42fa58287442ece2a12be481798c5?limit=10';
 
 document.addEventListener("DOMContentLoaded", () => {
-	console.log("🟩 DOM READY — #editor:", document.querySelector("#editor"));
+    console.log("🟩 DOM READY — #editor:", document.querySelector("#editor"));
 });
 
 // --------------------------------------------------------
 // LOAD PLUGINS — CKBuilder preset
 // --------------------------------------------------------
 const {
-	DecoupledEditor,
-	Autosave,
-	Essentials,
-	Paragraph,
-	CloudServices,
-	Autoformat,
-	TextTransformation,
-	LinkImage,
-	Link,
-	ImageBlock,
-	ImageToolbar,
-	BlockQuote,
-	Bold,
-	Bookmark,
-	CKBox,
-	ImageUpload,
-	ImageInsert,
-	ImageInsertViaUrl,
-	AutoImage,
-	PictureEditing,
-	CKBoxImageEdit,
-	CodeBlock,
-	TableColumnResize,
-	Table,
-	TableToolbar,
-	Emoji,
-	Mention,
-	PasteFromOffice,
-	FindAndReplace,
-	FontBackgroundColor,
-	FontColor,
-	FontFamily,
-	FontSize,
-	Heading,
-	HorizontalLine,
-	ImageCaption,
-	ImageResize,
-	ImageStyle,
-	Indent,
-	IndentBlock,
-	Code,
-	Italic,
-	AutoLink,
-	ListProperties,
-	List,
-	MediaEmbed,
-	RemoveFormat,
-	SpecialCharactersArrows,
-	SpecialCharacters,
-	SpecialCharactersCurrency,
-	SpecialCharactersEssentials,
-	SpecialCharactersLatin,
-	SpecialCharactersMathematical,
-	SpecialCharactersText,
-	Strikethrough,
-	Subscript,
-	Superscript,
-	TableCaption,
-	TableCellProperties,
-	TableProperties,
-	Alignment,
-	TodoList,
-	Underline,
-	BalloonToolbar
+    DecoupledEditor,
+    Autosave,
+    Essentials,
+    Paragraph,
+    CloudServices,
+    Autoformat,
+    TextTransformation,
+    LinkImage,
+    Link,
+    ImageBlock,
+    ImageToolbar,
+    BlockQuote,
+    Bold,
+    Bookmark,
+    CKBox,
+    ImageUpload,
+    ImageInsert,
+    ImageInsertViaUrl,
+    AutoImage,
+    PictureEditing,
+    CKBoxImageEdit,
+    CodeBlock,
+    TableColumnResize,
+    Table,
+    TableToolbar,
+    Emoji,
+    Mention,
+    PasteFromOffice,
+    FindAndReplace,
+    FontBackgroundColor,
+    FontColor,
+    FontFamily,
+    FontSize,
+    Heading,
+    HorizontalLine,
+    ImageCaption,
+    ImageResize,
+    ImageStyle,
+    Indent,
+    IndentBlock,
+    Code,
+    Italic,
+    AutoLink,
+    ListProperties,
+    List,
+    MediaEmbed,
+    RemoveFormat,
+    SpecialCharactersArrows,
+    SpecialCharacters,
+    SpecialCharactersCurrency,
+    SpecialCharactersEssentials,
+    SpecialCharactersLatin,
+    SpecialCharactersMathematical,
+    SpecialCharactersText,
+    Strikethrough,
+    Subscript,
+    Superscript,
+    TableCaption,
+    TableCellProperties,
+    TableProperties,
+    Alignment,
+    TodoList,
+    Underline,
+    BalloonToolbar
 } = window.CKEDITOR;
 
 const {
-	AIChat,
-	AIEditorIntegration,
-	AIQuickActions,
-	AIReviewMode,
-	PasteFromOfficeEnhanced,
-	FormatPainter,
-	LineHeight,
-	SlashCommand
+    AIChat,
+    AIEditorIntegration,
+    AIQuickActions,
+    AIReviewMode,
+    PasteFromOfficeEnhanced,
+    FormatPainter,
+    LineHeight,
+    SlashCommand
 } = window.CKEDITOR_PREMIUM_FEATURES;
 
 // --------------------------------------------------------
-// Helper: send message to Bubble parent
+// Helper: sendMessage to Bubble parent
 // --------------------------------------------------------
 if (typeof window.sendToParent !== "function") {
-	window.sendToParent = function (type, payload = {}) {
-		const message = {
-			bridge: BRIDGE_ID,
-			type,
-			payload
-		};
+    window.sendToParent = function (type, payload = {}) {
+        const message = {
+            bridge: BRIDGE_ID,
+            type,
+            payload
+        };
 
-		try {
-			window.parent.postMessage(message, "*");
-		} catch (e) {
-			console.error("❌ main.js parent.postMessage failed:", e);
-		}
-	};
+        try {
+            window.parent.postMessage(message, "*");
+        } catch (e) {
+            console.error("❌ postMessage failed:", e);
+        }
+    };
 }
 
 // --------------------------------------------------------
-// CONFIGURATION (NO RTC, WITH AI)
+// CONFIGURATION
 // --------------------------------------------------------
 const DOCUMENT_ID = "fv-doc-1";
 
 const editorConfig = {
-	toolbar: {
-		items: [
-			"undo", "redo", "|",
-			"toggleAi", "aiQuickActions", "|",
-			"formatPainter", "findAndReplace", "|",
-			"heading", "|",
-			"fontSize", "fontFamily", "fontColor", "fontBackgroundColor", "|",
-			"bold", "italic", "underline", "strikethrough",
-			"subscript", "superscript", "code", "removeFormat", "|",
-			"emoji", "specialCharacters", "horizontalLine",
-			"link", "bookmark",
-			"insertImage", "insertImageViaUrl", "ckbox",
-			"mediaEmbed", "insertTable", "blockQuote", "codeBlock", "|",
-			"alignment", "lineHeight", "|",
-			"bulletedList", "numberedList", "todoList",
-			"outdent", "indent"
-		]
-	},
+    toolbar: {
+        items: [
+            "undo", "redo", "|",
+            "toggleAi", "aiQuickActions", "|",
+            "formatPainter", "findAndReplace", "|",
+            "heading", "|",
+            "fontSize", "fontFamily", "fontColor", "fontBackgroundColor", "|",
+            "bold", "italic", "underline", "strikethrough",
+            "subscript", "superscript", "code", "removeFormat", "|",
+            "emoji", "specialCharacters", "horizontalLine",
+            "link", "bookmark",
+            "insertImage", "insertImageViaUrl", "ckbox",
+            "mediaEmbed", "insertTable", "blockQuote", "codeBlock", "|",
+            "alignment", "lineHeight", "|",
+            "bulletedList", "numberedList", "todoList",
+            "outdent", "indent"
+        ]
+    },
 
-	plugins: [
-		AIChat,
-		AIEditorIntegration,
-		AIQuickActions,
-		AIReviewMode,
-		Alignment,
-		Autoformat,
-		AutoImage,
-		AutoLink,
-		Autosave,
-		BalloonToolbar,
-		BlockQuote,
-		Bold,
-		Bookmark,
-		CKBox,
-		CKBoxImageEdit,
-		CloudServices,
-		Code,
-		CodeBlock,
-		Emoji,
-		Essentials,
-		FindAndReplace,
-		FontBackgroundColor,
-		FontColor,
-		FontFamily,
-		FontSize,
-		FormatPainter,
-		Heading,
-		HorizontalLine,
-		ImageBlock,
-		ImageCaption,
-		ImageInsert,
-		ImageInsertViaUrl,
-		ImageResize,
-		ImageStyle,
-		ImageToolbar,
-		ImageUpload,
-		Indent,
-		IndentBlock,
-		Italic,
-		LineHeight,
-		Link,
-		LinkImage,
-		List,
-		ListProperties,
-		MediaEmbed,
-		Mention,
-		Paragraph,
-		PasteFromOffice,
-		PasteFromOfficeEnhanced,
-		PictureEditing,
-		RemoveFormat,
-		SlashCommand,
-		SpecialCharacters,
-		SpecialCharactersArrows,
-		SpecialCharactersCurrency,
-		SpecialCharactersEssentials,
-		SpecialCharactersLatin,
-		SpecialCharactersMathematical,
-		SpecialCharactersText,
-		Strikethrough,
-		Subscript,
-		Superscript,
-		Table,
-		TableCaption,
-		TableCellProperties,
-		TableColumnResize,
-		TableProperties,
-		TableToolbar,
-		TextTransformation,
-		TodoList,
-		Underline
-	],
+    plugins: [
+        AIChat,
+        AIEditorIntegration,
+        AIQuickActions,
+        AIReviewMode,
+        Alignment,
+        Autoformat,
+        AutoImage,
+        AutoLink,
+        Autosave,
+        BalloonToolbar,
+        BlockQuote,
+        Bold,
+        Bookmark,
+        CKBox,
+        CKBoxImageEdit,
+        CloudServices,
+        Code,
+        CodeBlock,
+        Emoji,
+        Essentials,
+        FindAndReplace,
+        FontBackgroundColor,
+        FontColor,
+        FontFamily,
+        FontSize,
+        FormatPainter,
+        Heading,
+        HorizontalLine,
+        ImageBlock,
+        ImageCaption,
+        ImageInsert,
+        ImageInsertViaUrl,
+        ImageResize,
+        ImageStyle,
+        ImageToolbar,
+        ImageUpload,
+        Indent,
+        IndentBlock,
+        Italic,
+        LineHeight,
+        Link,
+        LinkImage,
+        List,
+        ListProperties,
+        MediaEmbed,
+        Mention,
+        Paragraph,
+        PasteFromOffice,
+        PasteFromOfficeEnhanced,
+        PictureEditing,
+        RemoveFormat,
+        SlashCommand,
+        SpecialCharacters,
+        SpecialCharactersArrows,
+        SpecialCharactersCurrency,
+        SpecialCharactersEssentials,
+        SpecialCharactersLatin,
+        SpecialCharactersMathematical,
+        SpecialCharactersText,
+        Strikethrough,
+        Subscript,
+        Superscript,
+        Table,
+        TableCaption,
+        TableCellProperties,
+        TableColumnResize,
+        TableProperties,
+        TableToolbar,
+        TextTransformation,
+        TodoList,
+        Underline
+    ],
 
-	ai: {
-		container: { type: "overlay", side: "right" }
-	},
+    ai: {
+        container: { type: "overlay", side: "right" }
+    },
 
-	cloudServices: {
-		tokenUrl: TOKEN_URL
-	},
+    cloudServices: {
+        tokenUrl: TOKEN_URL
+    },
 
-	collaboration: {
-		channelId: DOCUMENT_ID
-	},
+    collaboration: {
+        channelId: DOCUMENT_ID
+    },
 
-	placeholder: "Type or paste your content here!",
-	licenseKey: LICENSE_KEY
+    placeholder: "Type or paste your content here!",
+    licenseKey: LICENSE_KEY
 };
 
 // --------------------------------------------------------
@@ -294,34 +293,52 @@ const editorConfig = {
 console.log("🟦 Calling DecoupledEditor.create()...");
 
 DecoupledEditor.create(document.querySelector("#editor"), editorConfig)
-	.then(editor => {
-		console.log("🟩 EDITOR CREATED SUCCESSFULLY", editor);
+    .then(editor => {
+        console.log("🟩 EDITOR CREATED SUCCESSFULLY", editor);
 
-		document.querySelector("#editor-toolbar").appendChild(editor.ui.view.toolbar.element);
-		document.querySelector("#editor-menu-bar").appendChild(editor.ui.view.menuBarView.element);
+        document.querySelector("#editor-toolbar")
+            .appendChild(editor.ui.view.toolbar.element);
 
-		window.editor = editor;
-		window.suppressEditorEvents = false;
+        document.querySelector("#editor-menu-bar")
+            .appendChild(editor.ui.view.menuBarView.element);
 
-		// Apply pending content if Bubble sent LOAD_CONTENT too early
-		applyPendingLoad();
+        window.editor = editor;
+        window.suppressEditorEvents = false;
 
-		// Notify Bubble
-		window.sendToParent("EDITOR_READY", { timestamp: Date.now() });
+        // --------------------------------------------------------
+        // 🔥 FIX 1: Notify Bubble BEFORE running applyPendingLoad()
+        // --------------------------------------------------------
+        window.sendToParent("EDITOR_READY", { timestamp: Date.now() });
 
-		// Editor → Bubble
-		editor.model.document.on("change:data", () => {
-			if (window.suppressEditorEvents) return;
+        // --------------------------------------------------------
+        // 🔥 FIX 2: Apply early LOAD_CONTENT (if Bubble sent it too early)
+        // --------------------------------------------------------
+        applyPendingLoad();
 
-			const html = editor.getData();
-			console.log("🟧 CONTENT_UPDATE:", html.slice(0, 120));
+        // --------------------------------------------------------
+        // 🔥 FIX 3: If LOAD_CONTENT arrives late, apply it too
+        // --------------------------------------------------------
+        if (window._pendingLoadContent) {
+            console.log("🟦 Applying late LOAD_CONTENT...");
+            window.suppressEditorEvents = true;
+            editor.setData(window._pendingLoadContent);
+            window.suppressEditorEvents = false;
+            window._pendingLoadContent = null;
+        }
 
-			window.sendToParent("CONTENT_UPDATE", { html });
-		});
-	})
-	.catch(err => {
-		console.error("❌ EDITOR FAILED TO INITIALIZE:", err);
-	});
+        // Editor → Bubble sync
+        editor.model.document.on("change:data", () => {
+            if (window.suppressEditorEvents) return;
+
+            const html = editor.getData();
+            console.log("🟧 CONTENT_UPDATE:", html.slice(0, 120));
+
+            window.sendToParent("CONTENT_UPDATE", { html });
+        });
+    })
+    .catch(err => {
+        console.error("❌ EDITOR FAILED TO INITIALIZE:", err);
+    });
 
 // Disable CKEditor trial popup
 function configUpdateAlert() {}
