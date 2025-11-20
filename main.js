@@ -303,8 +303,13 @@ DecoupledEditor.create(document.querySelector("#editor"), editorConfig)
         window.editor = editor;
         window.suppressEditorEvents = false;
 
-        // Apply pending content if Bubble sent LOAD_CONTENT too early
-        applyPendingLoad();
+        /* --------------------------------------------------------
+           🟢 CRITICAL FIX — apply content AFTER full render
+        -------------------------------------------------------- */
+        editor.editing.view.once("render", () => {
+            console.log("✨ Editor fully rendered — applying pending content");
+            applyPendingLoad();
+        });
 
         // Tell Bubble that the iframe + editor are fully ready
         window.sendToParent("IFRAME_READY", { timestamp: Date.now() });
@@ -316,7 +321,6 @@ DecoupledEditor.create(document.querySelector("#editor"), editorConfig)
 
             const html = editor.getData();
             console.log("🟧 CONTENT_UPDATE:", html.slice(0, 120));
-
             window.sendToParent("CONTENT_UPDATE", { html });
         });
     })
