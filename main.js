@@ -32,7 +32,6 @@ const BRIDGE_ID = "CKE_BUBBLE_BRIDGE_V1";
             console.log("🟦 Applying LOAD_CONTENT to CKEditor…");
 
             try {
-                // Only treat editor as ready if setData exists and is a function
                 if (!window.editor || typeof window.editor.setData !== "function") {
                     console.warn("⚠️ Editor not ready or invalid — caching LOAD_CONTENT");
                     window._pendingLoadContent = safeHtml;
@@ -46,7 +45,6 @@ const BRIDGE_ID = "CKE_BUBBLE_BRIDGE_V1";
                 console.log("✔️ CKEditor content updated by Bubble (early listener)");
             } catch (err) {
                 console.error("❌ Failed setData, caching instead:", err);
-                // Cache anyway so the real editor can consume it later
                 window._pendingLoadContent = safeHtml;
             }
         }
@@ -68,6 +66,7 @@ function applyPendingLoad() {
     }
 
     console.log("🟦 Applying delayed LOAD_CONTENT...");
+
     try {
         window.suppressEditorEvents = true;
         window.editor.setData(window._pendingLoadContent);
@@ -320,6 +319,7 @@ DecoupledEditor.create(document.querySelector("#editor"), editorConfig)
         document
             .querySelector("#editor-toolbar")
             .appendChild(editor.ui.view.toolbar.element);
+
         document
             .querySelector("#editor-menu-bar")
             .appendChild(editor.ui.view.menuBarView.element);
@@ -327,17 +327,22 @@ DecoupledEditor.create(document.querySelector("#editor"), editorConfig)
         window.editor = editor;
         window.suppressEditorEvents = false;
 
-        // Apply pending content once the editor has rendered at least once
+        // --------------------------------------------------------
+        // FINAL FIX — apply content only after full paint cycle
+        // --------------------------------------------------------
         editor.editing.view.once("render", () => {
-            console.log("✨ Editor fully rendered — applying pending content (if any)");
-            applyPendingLoad();
+            console.log("✨ Editor rendered — waiting for full paint…");
+
+            requestAnimationFrame(() => {
+                console.log("✨ Applying pending content after full paint");
+                applyPendingLoad();
+            });
         });
 
-        // Tell Bubble that the iframe + editor are fully ready
         window.sendToParent("IFRAME_READY", { timestamp: Date.now() });
         window.sendToParent("EDITOR_READY", { timestamp: Date.now() });
 
-        // Editor → Bubble
+        // Editor → Bubble sync
         editor.model.document.on("change:data", () => {
             if (window.suppressEditorEvents) return;
 
