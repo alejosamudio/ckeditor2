@@ -330,41 +330,32 @@ DecoupledEditor.create(document.querySelector("#editor"), editorConfig)
         window.editor = editor;
         window.suppressEditorEvents = false;
 
-        // 🔥 Immediately apply cached content
+        // 🔥 Immediately try to apply any cached LOAD_CONTENT
         applyPendingLoad();
 
-        // ------------------------------------------------
-        // 🔥 FORCE-CLOSE THE AI SIDEBAR ON INIT
-        // ------------------------------------------------
-        try {
-            if (editor.plugins.has('AIEditorIntegration')) {
-                const aiPlugin = editor.plugins.get('AIEditorIntegration');
-                if (aiPlugin && aiPlugin.aiPanelView) {
-                    aiPlugin.aiPanelView.hide();   // <-- KEY FIX
-                    console.log("🤖 AI Panel hidden on start");
-                }
-            }
-        } catch (e) {
-            console.warn("⚠️ Could not hide AI panel:", e);
+        // ----------------------------------------------------
+        // 🔥 FORCE CLOSE AI PANEL (the only reliable method)
+        // ----------------------------------------------------
+        const aiChat = editor.plugins.get( 'AIChat' );
+
+        if (aiChat && aiChat.panel && aiChat.panel.isVisible) {
+            console.log("🛑 AI panel visible → closing…");
+            editor.execute( 'toggleAi' );
         }
+
+        // Some builds reopen it once → close again after render
+        editor.editing.view.once( 'render', () => {
+            if (aiChat && aiChat.panel && aiChat.panel.isVisible) {
+                console.log("🛑 AI panel reopened → closing again…");
+                editor.execute( 'toggleAi' );
+            }
+        });
+
+        // ----------------------------------------------------
 
         // Tell Bubble that the iframe + editor are fully ready
         window.sendToParent("IFRAME_READY", { timestamp: Date.now() });
         window.sendToParent("EDITOR_READY", { timestamp: Date.now() });
-
-        // ⛔️ Force-close AI panel on load
-        try {
-            const aiPlugin = editor.plugins.get('AIChat');
-            const aiUI = aiPlugin?.ui;
-
-            if (aiUI && aiUI.isOpen) {
-                aiUI.isOpen = false;
-                aiUI._updateVisibility();
-                console.log("🟪 AI panel force-closed on startup");
-            }
-        } catch (err) {
-            console.warn("⚠️ Failed to force-close AI panel:", err);
-        }
 
         // Editor → Bubble sync
         editor.model.document.on("change:data", () => {
@@ -374,11 +365,11 @@ DecoupledEditor.create(document.querySelector("#editor"), editorConfig)
             console.log("🟧 CONTENT_UPDATE:", html.slice(0, 120));
             window.sendToParent("CONTENT_UPDATE", { html });
         });
-
     })
     .catch(err => {
         console.error("❌ EDITOR FAILED TO INITIALIZE:", err);
     });
+
 
 // Disable CKEditor trial popup
 function configUpdateAlert() {}
