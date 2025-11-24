@@ -294,7 +294,8 @@ const editorConfig = {
     ],
 
     ai: {
-        container: { type: "overlay", side: "right" }
+        container: { type: "overlay", side: "right" },
+        openOnStart: false
     },
 
     cloudServices: {
