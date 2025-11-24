@@ -330,10 +330,25 @@ DecoupledEditor.create(document.querySelector("#editor"), editorConfig)
         window.editor = editor;
         window.suppressEditorEvents = false;
 
-        // 🔥 Immediately try to apply any cached LOAD_CONTENT
+        // 🔥 Immediately apply cached content
         applyPendingLoad();
 
-        // Tell Bubble that the iframe + editor are fully ready
+        // ------------------------------------------------
+        // 🔥 FORCE-CLOSE THE AI SIDEBAR ON INIT
+        // ------------------------------------------------
+        try {
+            if (editor.plugins.has('AIEditorIntegration')) {
+                const aiPlugin = editor.plugins.get('AIEditorIntegration');
+                if (aiPlugin && aiPlugin.aiPanelView) {
+                    aiPlugin.aiPanelView.hide();   // <-- KEY FIX
+                    console.log("🤖 AI Panel hidden on start");
+                }
+            }
+        } catch (e) {
+            console.warn("⚠️ Could not hide AI panel:", e);
+        }
+
+        // Notify Bubble
         window.sendToParent("IFRAME_READY", { timestamp: Date.now() });
         window.sendToParent("EDITOR_READY", { timestamp: Date.now() });
 
