@@ -351,11 +351,20 @@ DecoupledEditor.create(document.querySelector("#editor"), editorConfig)
             }
         });
 
-        // ----------------------------------------------------
-
         // Tell Bubble that the iframe + editor are fully ready
         window.sendToParent("IFRAME_READY", { timestamp: Date.now() });
         window.sendToParent("EDITOR_READY", { timestamp: Date.now() });
+
+        // 🔥 NEW: Force-close AI panel right after editor is ready
+        try {
+            const aiChat = editor.plugins.get( 'AIChat' );
+            if (aiChat && aiChat.ui?.view?.panelView) {
+                aiChat.ui.view.panelView.hide();   // This actually closes the panel
+                console.log("🟪 AI CHAT PANEL HIDDEN");
+            }
+        } catch (e) {
+            console.warn("⚠️ Could not hide AI panel:", e);
+        }
 
         // Editor → Bubble sync
         editor.model.document.on("change:data", () => {
@@ -365,6 +374,7 @@ DecoupledEditor.create(document.querySelector("#editor"), editorConfig)
             console.log("🟧 CONTENT_UPDATE:", html.slice(0, 120));
             window.sendToParent("CONTENT_UPDATE", { html });
         });
+
     })
     .catch(err => {
         console.error("❌ EDITOR FAILED TO INITIALIZE:", err);
