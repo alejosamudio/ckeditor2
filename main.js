@@ -32,6 +32,7 @@ const BRIDGE_ID = "CKE_BUBBLE_BRIDGE_V1";
             console.log("🟦 Applying LOAD_CONTENT to CKEditor…");
 
             try {
+                // Only treat editor as ready if setData exists and is a function
                 if (!window.editor || typeof window.editor.setData !== "function") {
                     console.warn("⚠️ Editor not ready or invalid — caching LOAD_CONTENT");
                     window._pendingLoadContent = safeHtml;
@@ -45,6 +46,7 @@ const BRIDGE_ID = "CKE_BUBBLE_BRIDGE_V1";
                 console.log("✔️ CKEditor content updated by Bubble (early listener)");
             } catch (err) {
                 console.error("❌ Failed setData, caching instead:", err);
+                // Cache anyway so the real editor can consume it later
                 window._pendingLoadContent = safeHtml;
             }
         }
@@ -327,18 +329,10 @@ DecoupledEditor.create(document.querySelector("#editor"), editorConfig)
         window.editor = editor;
         window.suppressEditorEvents = false;
 
-        // --------------------------------------------------------
-        // FINAL FIX — apply content only after full paint cycle
-        // --------------------------------------------------------
-        editor.editing.view.once("render", () => {
-            console.log("✨ Editor rendered — waiting for full paint…");
+        // 🔥 Immediately try to apply any cached LOAD_CONTENT
+        applyPendingLoad();
 
-            requestAnimationFrame(() => {
-                console.log("✨ Applying pending content after full paint");
-                applyPendingLoad();
-            });
-        });
-
+        // Tell Bubble that the iframe + editor are fully ready
         window.sendToParent("IFRAME_READY", { timestamp: Date.now() });
         window.sendToParent("EDITOR_READY", { timestamp: Date.now() });
 
