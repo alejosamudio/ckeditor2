@@ -1,7 +1,7 @@
 /**
  * CKEditor 5 + Bubble Bridge — Full Production File
  *  - AI enabled
- *  - Collaboration mode (RTC: comments, track changes, presence)
+ *  - No RTC
  *  - Bubble → Editor LOAD_CONTENT support
  *  - Editor → Bubble CONTENT_UPDATE support
  *  - Decoupled editor + menu bar
@@ -90,10 +90,6 @@ const LICENSE_KEY =
 const TOKEN_URL =
     'https://8dcvirycnlqo.cke-cs.com/token/dev/be4e0eb6c684c0b6f924971222172b2cad3c53451c5d97bdbe45318d4aec?limit=10';
 
-// 🔗 Collab-style aliases (from downloaded config)
-const CLOUD_SERVICES_TOKEN_URL = TOKEN_URL;
-const CLOUD_SERVICES_WEBSOCKET_URL = 'wss://8dcvirycnlqo.cke-cs.com/ws';
-
 document.addEventListener("DOMContentLoaded", () => {
     console.log("🟩 DOM READY — #editor:", document.querySelector("#editor"));
 });
@@ -176,16 +172,7 @@ const {
     PasteFromOfficeEnhanced,
     FormatPainter,
     LineHeight,
-    SlashCommand,
-    // ⬇️ Added from collab build
-    RealTimeCollaborativeComments,
-    RealTimeCollaborativeEditing,
-    PresenceList,
-    Comments,
-    RealTimeCollaborativeTrackChanges,
-    TrackChanges,
-    TrackChangesData,
-    TrackChangesPreview
+    SlashCommand
 } = window.CKEDITOR_PREMIUM_FEATURES;
 
 // --------------------------------------------------------
@@ -208,7 +195,7 @@ if (typeof window.sendToParent !== "function") {
 }
 
 // --------------------------------------------------------
-// CONFIGURATION (WITH AI + COLLAB)
+// CONFIGURATION (NO RTC, WITH AI)
 // --------------------------------------------------------
 const DOCUMENT_ID = "fv-doc-1";
 
@@ -216,8 +203,6 @@ const editorConfig = {
     toolbar: {
         items: [
             "undo", "redo", "|",
-            // ⬇️ Collab buttons
-            "trackChanges", "comment", "commentsArchive", "|",
             "toggleAi", "aiQuickActions", "|",
             "formatPainter", "findAndReplace", "|",
             "heading", "|",
@@ -305,16 +290,7 @@ const editorConfig = {
         TableToolbar,
         TextTransformation,
         TodoList,
-        Underline,
-        // ⬇️ Collab / comments / track changes / presence
-        Comments,
-        PresenceList,
-        RealTimeCollaborativeComments,
-        RealTimeCollaborativeEditing,
-        RealTimeCollaborativeTrackChanges,
-        TrackChanges,
-        TrackChangesData,
-        TrackChangesPreview
+        Underline
     ],
 
     ai: {
@@ -323,54 +299,11 @@ const editorConfig = {
     },
 
     cloudServices: {
-        tokenUrl: CLOUD_SERVICES_TOKEN_URL,
-        webSocketUrl: CLOUD_SERVICES_WEBSOCKET_URL
+        tokenUrl: TOKEN_URL
     },
 
     collaboration: {
         channelId: DOCUMENT_ID
-    },
-
-    // ⬇️ Balloon toolbar for inline comments, like official collab build
-    balloonToolbar: [
-        "comment",
-        "|",
-        "aiQuickActions",
-        "|",
-        "bold",
-        "italic",
-        "|",
-        "link",
-        "insertImage",
-        "|",
-        "bulletedList",
-        "numberedList"
-    ],
-
-    // ⬇️ Comments configuration from builder
-    comments: {
-        editorConfig: {
-            extraPlugins: [ Autoformat, Bold, Italic, List, Mention ],
-            mention: {
-                feeds: [
-                    {
-                        marker: '@',
-                        feed: [
-                            /* You can inject your @mentions list here */
-                        ]
-                    }
-                ]
-            }
-        }
-    },
-
-    // ⬇️ Presence list + sidebar containers (same as downloaded main.js)
-    presenceList: {
-        container: document.querySelector('#editor-presence')
-    },
-
-    sidebar: {
-        container: document.querySelector('#editor-annotations')
     },
 
     placeholder: "Type or paste your content here!",
@@ -401,7 +334,7 @@ DecoupledEditor.create(document.querySelector("#editor"), editorConfig)
         applyPendingLoad();
 
         // ----------------------------------------------------
-        // 🔥 FORCE CLOSE AI PANEL (your existing logic)
+        // 🔥 FORCE CLOSE AI PANEL (the only reliable method)
         // ----------------------------------------------------
         const aiChat = editor.plugins.get( 'AIChat' );
 
@@ -446,6 +379,7 @@ DecoupledEditor.create(document.querySelector("#editor"), editorConfig)
     .catch(err => {
         console.error("❌ EDITOR FAILED TO INITIALIZE:", err);
     });
+
 
 // Disable CKEditor trial popup
 function configUpdateAlert() {}
